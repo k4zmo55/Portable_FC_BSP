@@ -36,8 +36,9 @@ target_sources(${PROJECT_NAME} PRIVATE
 # Add include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
   # User defined include directories
-  ${CMAKE_CURRENT_SOURCE_DIR}/Inc/Device/stm32f4xx.h,
   ${CMAKE_CURRENT_SOURCE_DIR}/Inc
+  ${CMAKE_CURRENT_SOURCE_DIR}/Inc/Device
+  ${CMAKE_CURRENT_SOURCE_DIR}/Inc/Drivers
 )
 
 # Compiler options
@@ -48,6 +49,7 @@ target_compile_options(${PROJECT_NAME} PRIVATE
 # Add additional defined symbols
 target_compile_definitions(${PROJECT_NAME} PRIVATE
   # Add additional defined symbols here
+  STM32F407xx
 )
 
 # Linker options

@@ -16,13 +16,15 @@ extern "C"{
 #include <stdint.h>
 #include <stddef.h>
 
+
 #if defined(STM32F405xx) 
     #include "stm32f405xx.h"
 #elif defined(STM32F407xx)
     #include "stm32f407xx.h"
 #else
-    #error "Desteklenen bir MCU varyanti tanimlanmamis (STM32F405xx / STM32F407xx)"
+    #warning "Desteklenen bir MCU varyanti tanimlanmamis (STM32F405xx / STM32F407xx)"
 #endif
+
 
 /******************************************************
 
@@ -160,7 +162,7 @@ typedef struct {
   uint32_t      RESERVED6[2]; /*!< 0x78                                       */
   volatile uint32_t SSCGR;        /*!< 0x80  spread spectrum                      */
   volatile uint32_t PLLI2SCFGR;   /*!< 0x84                                       */
-}RCC_TypeDef;
+}RCC_TypeDef_t;
 
 /* SYSCFG register map: harici kesme haritalama, bellek yeniden esleme */
 typedef struct {
@@ -359,6 +361,10 @@ typedef struct{
 #define TIM10_PCLK_DI()  (RCC->APB2ENR &= ~(1 << 17))
 #define TIM11_PCLK_DI()  (RCC->APB2ENR &= ~(1 << 18))
 
+
+/*Useful Macros*/
+#define ENABLE  1
+#define DISABLE 0
 
 #ifdef _cplusplus
 }
