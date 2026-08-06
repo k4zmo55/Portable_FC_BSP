@@ -1,3 +1,10 @@
+/*
+ * stm32f4xx.h
+ *
+ * STM32F405/F407 icin cekirdek donanim tanimlari:
+ * bus/periferik taban adresleri, register haritalari
+ * (typedef struct) ve periferik saat (PCLK) enable/disable makrolari.
+ */
 #ifndef FC_STM32F4XX_H
 #define FC_STM32F4XX_H
 
@@ -17,6 +24,11 @@ extern "C"{
     #error "Desteklenen bir MCU varyanti tanimlanmamis (STM32F405xx / STM32F407xx)"
 #endif
 
+/******************************************************
+
+        Bus Base Address Definations
+
+******************************************************/
 #define AHB3_BASE_ADDR (0xA0000000UL)
 #define AHB2_BASE_ADDR (0x50000000UL)
 #define AHB1_BASE_ADDR (0x40020000UL)
@@ -102,6 +114,7 @@ extern "C"{
 #define DMA2_BASE_ADDR   (AHB1_BASE_ADDR + 0x6400)
 
 
+/* GPIO register map (bkz. RM0090, GPIO section) */
 typedef struct{
     volatile uint32_t MODER;    /*Offset: 0x00*/
     volatile uint32_t OTYPER;   /*Offset: 0x04*/
@@ -109,12 +122,13 @@ typedef struct{
     volatile uint32_t PUPDR;    /*Offset: 0x0C*/
     volatile uint32_t IDR;      /*Offset: 0x10*/
     volatile uint32_t ODR;      /*Offset: 0x14*/
-    volatile uint32_t BSRR;     /*Offset: 0x18*/ 
+    volatile uint32_t BSRR;     /*Offset: 0x18*/
     volatile uint32_t LCKR;     /*Offset: 0x1C*/
     volatile uint32_t AFR[2];   /*Offset: 0x20 + 0x24*/
 }GPIOx_RegDef_t;
 
 
+/* RCC register map: clock kaynaklari, PLL, periferik enable/reset kontrolu */
 typedef struct {
   volatile uint32_t CR;           /*!< 0x00  clock control                        */
   volatile uint32_t PLLCFGR;      /*!< 0x04  PLL konfigurasyonu                   */
@@ -148,6 +162,7 @@ typedef struct {
   volatile uint32_t PLLI2SCFGR;   /*!< 0x84                                       */
 }RCC_TypeDef;
 
+/* SYSCFG register map: harici kesme haritalama, bellek yeniden esleme */
 typedef struct {
     volatile uint32_t MEMRMP;    /*!< 0x00 Memory remap: adres 0x00000000'a Flash/SRAM/FSMC esleme    */
     volatile uint32_t PMC;       /*!< 0x04 Peripheral mode config: ETH MII/RMII secimi, ADCxDC2       */
@@ -159,6 +174,7 @@ typedef struct {
     volatile uint32_t CMPCR;     /*!< 0x20 Compensation cell control: I/O surucu kompanzasyonu        */
 } SYSCFG_TypeDef_t;
 
+/* I2C register map */
 typedef struct {
     volatile uint32_t CR1;       /*!< 0x00 Control 1: PE, START, STOP, ACK, SWRST                     */
     volatile uint32_t CR2;       /*!< 0x04 Control 2: FREQ[5:0] (APB1 MHz), ITEVTEN, ITBUFEN, DMAEN   */
@@ -172,6 +188,7 @@ typedef struct {
     volatile uint32_t FLTR;      /*!< 0x24 Digital/analog gurultu filtresi                            */
 } I2Cx_RegDef_t;
 
+/* SPI register map */
 typedef struct {
     volatile uint32_t CR1;      /*!< 0x00 Control 1: CPHA, CPOL, MSTR, BR[2:0], SPE, LSBFIRST, SSI, SSM, DFF */
     volatile uint32_t CR2;      /*!< 0x04 Control 2: TXDMAEN, RXDMAEN, SSOE, TXEIE, RXNEIE, ERRIE            */
@@ -184,16 +201,22 @@ typedef struct {
     volatile uint32_t I2SPR;    /*!< 0x20 I2S prescaler; sadece I2S modunda anlamli                          */
 } SPIx_RegDef_t;
 
+/* USART/UART register map */
 typedef struct{
-    volatile uint32_t SR;
-    volatile uint32_t DR;
-    volatile uint32_t BRR;
-    volatile uint32_t CR1;
-    volatile uint32_t CR2;
-    volatile uint32_t CR3;
-    volatile uint32_t GTPR; 
+    volatile uint32_t SR;    /*!< 0x00 Status: TXE, RXNE, TC, ORE + hata bayraklari       */
+    volatile uint32_t DR;    /*!< 0x04 Data: gonderme/alma (alt 9 bit gecerli)            */
+    volatile uint32_t BRR;   /*!< 0x08 Baud rate: DIV_Mantissa[15:4] + DIV_Fraction[3:0]  */
+    volatile uint32_t CR1;   /*!< 0x0C Control 1: UE, M, PCE, TE, RE, RXNEIE, TXEIE       */
+    volatile uint32_t CR2;   /*!< 0x10 Control 2: STOP bitleri, LINEN, CLKEN              */
+    volatile uint32_t CR3;   /*!< 0x14 Control 3: CTSE, RTSE, DMAT, DMAR                  */
+    volatile uint32_t GTPR;  /*!< 0x18 Guard time & prescaler (IrDA/smartcard modu icin)  */
 }USARTx_RegDef_t;
 
+/******************************************************
+
+        Peripheral Pointer Definations
+
+******************************************************/
 #define GPIOA ((GPIOx_RegDef_t*)GPIOA_BASE_ADDR)
 #define GPIOB ((GPIOx_RegDef_t*)GPIOB_BASE_ADDR)
 #define GPIOC ((GPIOx_RegDef_t*)GPIOC_BASE_ADDR)
@@ -230,6 +253,9 @@ typedef struct{
 #define UART7  ((USARTx_RegDef_t*)UART7_BASE_ADDR)
 #define UART8  ((USARTx_RegDef_t*)UART8_BASE_ADDR)
 
+/* ==================== PCLK ENABLE MACROS ==================== */
+
+/* AHB1 peripheral clock enable */
 #define GPIOA_PCLK_EN()  (RCC->AHB1ENR |= (1 << 0))
 #define GPIOB_PCLK_EN()  (RCC->AHB1ENR |= (1 << 1))
 #define GPIOC_PCLK_EN()  (RCC->AHB1ENR |= (1 << 2))
@@ -241,17 +267,7 @@ typedef struct{
 #define GPIOI_PCLK_EN()  (RCC->AHB1ENR |= (1 << 8))
 #define CRC_PCLK_EN()    (RCC->AHB1ENR |= (1 << 12))
 
-#define GPIOA_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 0))
-#define GPIOB_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 1))
-#define GPIOC_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 2))
-#define GPIOD_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 3))
-#define GPIOE_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 4))
-#define GPIOF_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 5))
-#define GPIOG_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 6))
-#define GPIOH_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 7))
-#define GPIOI_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 8))
-#define CRC_PCLK_DI()    (RCC->AHB1ENR &= ~(1 << 12))
-
+/* APB1 peripheral clock enable */
 #define TIM2_PCLK_EN()   (RCC->APB1ENR |= (1 << 0))
 #define TIM3_PCLK_EN()   (RCC->APB1ENR |= (1 << 1))
 #define TIM4_PCLK_EN()   (RCC->APB1ENR |= (1 << 2))
@@ -276,10 +292,7 @@ typedef struct{
 #define PWR_PCLK_EN()    (RCC->APB1ENR |= (1 << 28))
 #define DAC_PCLK_EN()    (RCC->APB1ENR |= (1 << 29))
 
-
-#define TIM12_PCLK_DI()  (RCC->APB1ENR &= ~(1 << 0))
-
-
+/* APB2 peripheral clock enable */
 #define TIM1_PCLK_EN()   (RCC->APB2ENR |= (1 << 0))
 #define TIM8_PCLK_EN()   (RCC->APB2ENR |= (1 << 1))
 #define USART1_PCLK_EN() (RCC->APB2ENR |= (1 << 4))
@@ -292,6 +305,60 @@ typedef struct{
 #define TIM9_PCLK_EN()   (RCC->APB2ENR |= (1 << 16))
 #define TIM10_PCLK_EN()  (RCC->APB2ENR |= (1 << 17))
 #define TIM11_PCLK_EN()  (RCC->APB2ENR |= (1 << 18))
+
+/* ==================== PCLK DISABLE MACROS ==================== */
+
+/* AHB1 peripheral clock disable */
+#define GPIOA_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 0))
+#define GPIOB_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 1))
+#define GPIOC_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 2))
+#define GPIOD_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 3))
+#define GPIOE_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 4))
+#define GPIOF_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 5))
+#define GPIOG_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 6))
+#define GPIOH_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 7))
+#define GPIOI_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 8))
+#define CRC_PCLK_DI()    (RCC->AHB1ENR &= ~(1 << 12))
+
+/* APB1 peripheral clock disable */
+#define TIM2_PCLK_DI()   (RCC->APB1ENR &= ~(1 << 0))
+#define TIM3_PCLK_DI()   (RCC->APB1ENR &= ~(1 << 1))
+#define TIM4_PCLK_DI()   (RCC->APB1ENR &= ~(1 << 2))
+#define TIM5_PCLK_DI()   (RCC->APB1ENR &= ~(1 << 3))
+#define TIM6_PCLK_DI()   (RCC->APB1ENR &= ~(1 << 4))
+#define TIM7_PCLK_DI()   (RCC->APB1ENR &= ~(1 << 5))
+#define TIM12_PCLK_DI()  (RCC->APB1ENR &= ~(1 << 6))
+#define TIM13_PCLK_DI()  (RCC->APB1ENR &= ~(1 << 7))
+#define TIM14_PCLK_DI()  (RCC->APB1ENR &= ~(1 << 8))
+#define WWDG_PCLK_DI()   (RCC->APB1ENR &= ~(1 << 11))
+#define SPI2_PCLK_DI()   (RCC->APB1ENR &= ~(1 << 14))
+#define SPI3_PCLK_DI()   (RCC->APB1ENR &= ~(1 << 15))
+#define USART2_PCLK_DI() (RCC->APB1ENR &= ~(1 << 17))
+#define USART3_PCLK_DI() (RCC->APB1ENR &= ~(1 << 18))
+#define UART4_PCLK_DI()  (RCC->APB1ENR &= ~(1 << 19))
+#define UART5_PCLK_DI()  (RCC->APB1ENR &= ~(1 << 20))
+#define I2C1_PCLK_DI()   (RCC->APB1ENR &= ~(1 << 21))
+#define I2C2_PCLK_DI()   (RCC->APB1ENR &= ~(1 << 22))
+#define I2C3_PCLK_DI()   (RCC->APB1ENR &= ~(1 << 23))
+#define CAN1_PCLK_DI()   (RCC->APB1ENR &= ~(1 << 25))
+#define CAN2_PCLK_DI()   (RCC->APB1ENR &= ~(1 << 26))
+#define PWR_PCLK_DI()    (RCC->APB1ENR &= ~(1 << 28))
+#define DAC_PCLK_DI()    (RCC->APB1ENR &= ~(1 << 29))
+
+/* APB2 peripheral clock disable */
+#define TIM1_PCLK_DI()   (RCC->APB2ENR &= ~(1 << 0))
+#define TIM8_PCLK_DI()   (RCC->APB2ENR &= ~(1 << 1))
+#define USART1_PCLK_DI() (RCC->APB2ENR &= ~(1 << 4))
+#define USART6_PCLK_DI() (RCC->APB2ENR &= ~(1 << 5))
+#define ADC1_PCLK_DI()   (RCC->APB2ENR &= ~(1 << 8))
+#define ADC2_PCLK_DI()   (RCC->APB2ENR &= ~(1 << 9))
+#define ADC3_PCLK_DI()   (RCC->APB2ENR &= ~(1 << 10))
+#define SPI1_PCLK_DI()   (RCC->APB2ENR &= ~(1 << 12))
+#define SYSCFG_PCLK_DI() (RCC->APB2ENR &= ~(1 << 14))
+#define TIM9_PCLK_DI()   (RCC->APB2ENR &= ~(1 << 16))
+#define TIM10_PCLK_DI()  (RCC->APB2ENR &= ~(1 << 17))
+#define TIM11_PCLK_DI()  (RCC->APB2ENR &= ~(1 << 18))
+
 
 #ifdef _cplusplus
 }
