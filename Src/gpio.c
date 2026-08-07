@@ -1,4 +1,5 @@
 #include "gpio.h"
+#include "stm32f4xx.h"
 #include <stdint.h>
 
 void GPIO_PeriClockControl(GPIOx_RegDef_t *pGPIOx, uint8_t EnOrDi)
@@ -49,6 +50,7 @@ GPIO_Status_t GPIO_Init(GPIO_Handle_t *pGPIOHandle)
     {
         return GPIO_ERROR;
     }
+
     //GPIO Mode Configuration
 
     if(pGPIOHandle->PinConfig.PinMode <= GPIO_MODE_ANALOG)
@@ -59,6 +61,34 @@ GPIO_Status_t GPIO_Init(GPIO_Handle_t *pGPIOHandle)
     else
     {
         //Interrupt Mode
+
+        //Rising Edge Detection
+        if(pGPIOHandle->PinConfig.PinMode == GPIO_MODE_IT_RT)
+        {
+            EXTI->FTSR &= ~(1 << pGPIOHandle->PinConfig.PinNumber);
+            EXTI->RTSR |= (1 << pGPIOHandle->PinConfig.PinNumber);
+        }
+        //Falling Edge Detection
+        else if(pGPIOHandle->PinConfig.PinMode == GPIO_MODE_IT_FT)
+        {
+            EXTI->RTSR &= ~(1 << pGPIOHandle->PinConfig.PinNumber);
+            EXTI->FTSR |= (1 << pGPIOHandle->PinConfig.PinNumber);
+        }
+        //Rising and Falling Edges Detection
+        else if(pGPIOHandle->PinConfig.PinMode == GPIO_MODE_IT_RFT)
+        {
+            EXTI->FTSR |= (1 << pGPIOHandle->PinConfig.PinNumber);
+            EXTI->RTSR |= (1 << pGPIOHandle->PinConfig.PinNumber);
+        }
+
+        uint8_t exti_index = (pGPIOHandle->PinConfig.PinNumber / 4);
+        uint8_t exti_pos = (pGPIOHandle->PinConfig.PinNumber % 4);
+
+        uint8_t port_code = GPIO_BASEADDR_TO_CODE(pGPIOHandle->pGPIOx);
+        SYSCFG_PCLK_EN();
+        SYSCFG->EXTICR[exti_index] &= ~(0xF << (exti_pos * 4));
+        SYSCFG->EXTICR[exti_index] |= (port_code << (exti_pos * 4));
+        EXTI->IMR |= (1 << pGPIOHandle->PinConfig.PinNumber);
     }
 
     //GPIO Speed Configuration
@@ -87,4 +117,127 @@ GPIO_Status_t GPIO_Init(GPIO_Handle_t *pGPIOHandle)
     }
 
     return GPIO_OK;
+}
+
+void GPIO_DeInit(GPIOx_RegDef_t *pGPIOx)
+{
+    if(pGPIOx == GPIOA) 
+    { 
+        GPIOA_REG_RESET();
+    }
+    else if(pGPIOx == GPIOB)
+    {
+        GPIOB_REG_RESET();
+    }
+    else if(pGPIOx == GPIOC)
+    {
+        GPIOC_REG_RESET();
+    }
+    else if(pGPIOx == GPIOD)
+    {
+        GPIOD_REG_RESET();
+    }
+    else if(pGPIOx == GPIOE)
+    {
+        GPIOE_REG_RESET();
+    }
+    else if(pGPIOx == GPIOF)
+    {
+        GPIOF_REG_RESET();
+    }
+    else if(pGPIOx == GPIOG)
+    {
+        GPIOG_REG_RESET();
+    }
+    else if(pGPIOx == GPIOH)
+    {
+        GPIOH_REG_RESET();
+    }
+    else if(pGPIOx == GPIOI)
+    {
+        GPIOI_REG_RESET();
+    }
+
+}
+
+GPIO_Status_t GPIO_ReadFromPin(GPIOx_RegDef_t *pGPIOx, uint8_t PinNumber)
+{
+    if(!IS_GPIO(pGPIOx) || !IS_GPIO_PIN(PinNumber))
+    {
+        return GPIO_ERROR;
+    }
+
+    uint8_t value = 0;
+    value = (uint8_t)((pGPIOx->IDR >> PinNumber) & 0x00000001);
+    return value;
+}
+
+uint16_t GPIO_ReadFromPort(GPIOx_RegDef_t *pGPIOx)
+{
+    uint16_t value = 0;
+    value = (uint16_t)pGPIOx->IDR;
+    return value;
+}
+
+GPIO_Status_t GPIO_WriteToPin(GPIOx_RegDef_t *pGPIOx, uint8_t PinNumber, GPIO_PinState_t PinState)
+{
+    if(!IS_GPIO(pGPIOx) || !IS_GPIO_PIN_STATE(PinState) || ! IS_GPIO_PIN(PinNumber))
+    {
+        return GPIO_ERROR;
+    }
+
+    if(PinState == ENABLE)
+    {
+        pGPIOx->ODR |= (1 << PinNumber);
+    }
+    else
+    {
+        pGPIOx->ODR &= ~(1 << PinNumber);
+    }
+
+    return GPIO_OK;
+}
+
+GPIO_Status_t GPIO_WriteToPort(GPIOx_RegDef_t *pGPIOx, uint16_t Value)
+{
+    if(!IS_GPIO(pGPIOx) || !IS_GPIO_PIN_STATE(Value))
+    {
+        return GPIO_ERROR;
+    }
+
+    pGPIOx->ODR = Value;
+
+    return GPIO_OK;
+}
+
+void GPIO_TogglePin(GPIOx_RegDef_t *pGPIOx, uint8_t PinNumber)
+{
+    pGPIOx->ODR ^= (1 << PinNumber);
+}
+
+void GPIO_IRQInterruptConfig(IRQn_Type IRQNumber, uint8_t EnOrDi)
+{
+    uint8_t index = IRQNumber / 32;
+    uint8_t pos = IRQNumber % 32;
+
+    if(EnOrDi == ENABLE)
+    {
+        NVIC->ISER[index] = (1 << pos);
+    }
+    else {
+        NVIC->ICER[index] = (1 << pos);
+    }
+}
+
+void   GPIO_IRQPriorityConfig(IRQn_Type IRQNumber, uint8_t IRQPriority)
+{
+    NVIC->IP[IRQNumber] = (uint8_t)(IRQPriority << 4);
+}
+
+void GPIO_IRQHandling(uint8_t PinNumber)
+{
+    if(EXTI->PR & (1U << PinNumber))
+    {
+        EXTI->PR |= (1U << PinNumber); //Clear
+    }
 }

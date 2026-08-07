@@ -1,6 +1,7 @@
 #ifndef FC_GPIO_H
 #define FC_GPIO_H
 
+#include "stm32f407xx.h"
 #include "stm32f4xx.h"
 #include <stdint.h>
 
@@ -172,13 +173,17 @@ void            GPIO_PeriClockControl(GPIOx_RegDef_t *pGPIOx, uint8_t EnOrDi);
 GPIO_Status_t   GPIO_Init(GPIO_Handle_t *pGPIOHandle);
 void            GPIO_DeInit(GPIOx_RegDef_t *pGPIOx);
 
-GPIO_PinState_t GPIO_ReadFromPin(GPIOx_RegDef_t *pGPIOx, uint8_t PinNumber);
+GPIO_Status_t GPIO_ReadFromPin(GPIOx_RegDef_t *pGPIOx, uint8_t PinNumber);
 uint16_t        GPIO_ReadFromPort(GPIOx_RegDef_t *pGPIOx);
 
 GPIO_Status_t   GPIO_WriteToPin(GPIOx_RegDef_t *pGPIOx, uint8_t PinNumber, GPIO_PinState_t PinState);
 GPIO_Status_t   GPIO_WriteToPort(GPIOx_RegDef_t *pGPIOx, uint16_t Value);
 
-void            GPIO_TogglePin(GPIOx_RegDef_t *pGPIOx, uint8_t PinNumber);
+void   GPIO_TogglePin(GPIOx_RegDef_t *pGPIOx, uint8_t PinNumber);
+
+void   GPIO_IRQInterruptConfig(IRQn_Type IRQNumber, uint8_t EnOrDi);
+void   GPIO_IRQPriorityConfig(IRQn_Type IRQNumber, uint8_t IRQPriority);
+void   GPIO_IRQHandling(uint8_t PinNumber);
 
 #endif /* FC_GPIO_H */
 

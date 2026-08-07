@@ -37,6 +37,8 @@ extern "C"{
 #define APB2_BASE_ADDR (0x40010000UL)
 #define APB1_BASE_ADDR (0x40000000UL)
 
+#define NVIC_BASE_ADDR (0xE0000E100UL)
+
 /******************************************************
 
         APB1 Peripherals Base Address Definations
@@ -129,6 +131,41 @@ typedef struct{
     volatile uint32_t AFR[2];   /*Offset: 0x20 + 0x24*/
 }GPIOx_RegDef_t;
 
+/* EXTI register map*/
+typedef struct{
+    volatile uint32_t IMR;      /*Offset : 0x00*/
+    volatile uint32_t EMR;      /*Offset : 0x04*/
+    volatile uint32_t RTSR;     /*Offset : 0x08*/
+    volatile uint32_t FTSR;     /*Offset : 0x0C*/
+    volatile uint32_t SWIER;    /*Offset : 0x10*/
+    volatile uint32_t PR;       /*Offset : 0x14*/
+}EXTI_RegDef_t;
+
+typedef struct {
+    volatile uint32_t ISER[3];     // 0x000 - 0x00B: Interrupt Enable
+    uint32_t RESERVED0[29];        // 0x00C - 0x07F: Rezerve
+
+    volatile uint32_t ICER[3];     // 0x080 - 0x08B: Interrupt Disable
+    uint32_t RESERVED1[29];        // 0x08C - 0x0FF: Rezerve
+
+    volatile uint32_t ISPR[3];     // 0x100 - 0x10B: Interrupt Set-Pending
+    uint32_t RESERVED2[29];        // 0x10C - 0x17F: Rezerve
+
+    volatile uint32_t ICPR[3];     // 0x180 - 0x18B: Interrupt Clear-Pending
+    uint32_t RESERVED3[29];        // 0x18C - 0x1FF: Rezerve
+
+    volatile uint32_t IABR[3];     // 0x200 - 0x20B: Active Bit Register
+    uint32_t RESERVED4[61];        // 0x20C - 0x2FF: Rezerve (61 words = 244 bytes)
+
+    /* --- DEĞİŞEN KISIM BURASI --- */
+    /* 0x300 - 0x3EF: 240 adet 8-bitlik Interrupt Priority yazmacı */
+    volatile uint8_t IP[240];      
+
+    /* 0x3F0 - 0xDFB: Rezerve alan (2572 byte = 643 words) */
+    uint32_t RESERVED5[643];       
+
+    volatile uint32_t STIR;        // 0xE00: Software Trigger Interrupt
+} NVIC_RegDef_t;
 
 /* RCC register map: clock kaynaklari, PLL, periferik enable/reset kontrolu */
 typedef struct {
@@ -168,10 +205,7 @@ typedef struct {
 typedef struct {
     volatile uint32_t MEMRMP;    /*!< 0x00 Memory remap: adres 0x00000000'a Flash/SRAM/FSMC esleme    */
     volatile uint32_t PMC;       /*!< 0x04 Peripheral mode config: ETH MII/RMII secimi, ADCxDC2       */
-    volatile uint32_t EXTICR1;   /*!< 0x08 EXTI hat 0-3   -> hangi port (4 bit/hat)                    */
-    volatile uint32_t EXTICR2;   /*!< 0x0C EXTI hat 4-7   -> hangi port                                */
-    volatile uint32_t EXTICR3;   /*!< 0x10 EXTI hat 8-11  -> hangi port                                */
-    volatile uint32_t EXTICR4;   /*!< 0x14 EXTI hat 12-15 -> hangi port                                */
+    volatile uint32_t EXTICR[4]; /*!< 0x08 ... 0x14 EXTI hat 0-3   -> hangi port (4 bit/hat)                    */
     uint32_t RESERVED[2];        /*!< 0x18 - 0x1C rezerve (ATLAMA: CMPCR offsetini kaydirir)          */
     volatile uint32_t CMPCR;     /*!< 0x20 Compensation cell control: I/O surucu kompanzasyonu        */
 } SYSCFG_TypeDef_t;
@@ -234,6 +268,10 @@ typedef struct{
 #define RCC   ((RCC_TypeDef_t*)RCC_BASE_ADDR)
 
 #define SYSCFG ((SYSCFG_TypeDef_t*)SYSCFG_BASE_ADDR)
+
+#define EXTI   ((EXTI_RegDef_t*)EXTI_BASE_ADDR)
+
+#define NVIC   ((NVIC_RegDef_t*)NVIC_BASE_ADDR)
 
 #define I2C1  ((I2Cx_RegDef_t*)I2C1_BASE_ADDR)
 #define I2C2  ((I2Cx_RegDef_t*)I2C2_BASE_ADDR)
@@ -361,6 +399,25 @@ typedef struct{
 #define TIM10_PCLK_DI()  (RCC->APB2ENR &= ~(1 << 17))
 #define TIM11_PCLK_DI()  (RCC->APB2ENR &= ~(1 << 18))
 
+/* GPIOx Peripheral Register Reset*/
+#define GPIOA_REG_RESET() do{ (RCC->AHB1RSTR |= (1 << 0)); (RCC->AHB1RSTR &= ~(1 << 0));}while(0) 
+#define GPIOB_REG_RESET() do{ (RCC->AHB1RSTR |= (1 << 1)); (RCC->AHB1RSTR &= ~(1 << 1));}while(0)
+#define GPIOC_REG_RESET() do{ (RCC->AHB1RSTR |= (1 << 2)); (RCC->AHB1RSTR &= ~(1 << 2));}while(0)
+#define GPIOD_REG_RESET() do{ (RCC->AHB1RSTR |= (1 << 3)); (RCC->AHB1RSTR &= ~(1 << 3));}while(0)
+#define GPIOE_REG_RESET() do{ (RCC->AHB1RSTR |= (1 << 4)); (RCC->AHB1RSTR &= ~(1 << 4));}while(0)
+#define GPIOF_REG_RESET() do{ (RCC->AHB1RSTR |= (1 << 5)); (RCC->AHB1RSTR &= ~(1 << 5));}while(0)
+#define GPIOG_REG_RESET() do{ (RCC->AHB1RSTR |= (1 << 6)); (RCC->AHB1RSTR &= ~(1 << 6));}while(0)
+#define GPIOH_REG_RESET() do{ (RCC->AHB1RSTR |= (1 << 7)); (RCC->AHB1RSTR &= ~(1 << 7));}while(0)
+#define GPIOI_REG_RESET() do{ (RCC->AHB1RSTR |= (1 << 8)); (RCC->AHB1RSTR &= ~(1 << 8));}while(0)
+
+#define GPIO_BASEADDR_TO_CODE(pGPIOx)  ((pGPIOx == GPIOA) ? 0 : \
+                                        (pGPIOx == GPIOB) ? 1 : \
+                                        (pGPIOx == GPIOC) ? 2 : \
+                                        (pGPIOx == GPIOD) ? 3 : \
+                                        (pGPIOx == GPIOE) ? 4 : \
+                                        (pGPIOx == GPIOF) ? 5 : \
+                                        (pGPIOx == GPIOG) ? 6 : \
+                                        (pGPIOx == GPIOH) ? 7 : 0)
 
 /*Useful Macros*/
 #define ENABLE  1
