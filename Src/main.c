@@ -19,17 +19,55 @@
 #include <stdint.h>
 #include "stm32f4xx.h"
 #include "gpio.h"
+#include "rcc.h"
 
 static void delay(void)
 {
-    for(volatile uint32_t i = 0; i < 500000; i++);
+    for(volatile uint32_t i = 0; i < 4000000; i++);
+}
+
+static void ErrorBlink(uint8_t Pin)
+{
+    for(;;)
+    {
+        GPIO_TogglePin(GPIOD, Pin);
+        delay();
+    }
 }
 
 int main(void)
 {
     const uint8_t LedPins[3] = { GPIO_PIN_NO_12, GPIO_PIN_NO_13, GPIO_PIN_NO_14 };
 
+    RCC_Config_t ClockConfig = {
+        .OscSource     = RCC_OSC_HSE,
+        .OscFreqHz     = 8000000UL,
+        .UsePLL        = 1,
+        .PLL           = { .PLL_M = 8, .PLL_N = 336, .PLL_P = 2, .PLL_Q = 7 },
+        .AHBPrescaler  = RCC_AHB_DIV_1,
+        .APB1Prescaler = RCC_APB_DIV_4,
+        .APB2Prescaler = RCC_APB_DIV_2,
+        .FlashLatency  = 5
+    };
+
     GPIO_PeriClockControl(GPIOD, ENABLE);
+
+    if(RCC_Init(&ClockConfig) != RCC_OK)
+    {
+        /* Saat kurulamadi (HSE/PLL kilitlenmedi): PD12'yi hizli yanip
+           sondurerek hata sinyali ver, programdan cikma */
+        GPIO_Handle_t ErrLed = {0};
+        ErrLed.pGPIOx                   = GPIOD;
+        ErrLed.PinConfig.PinNumber      = GPIO_PIN_NO_12;
+        ErrLed.PinConfig.PinMode        = GPIO_MODE_OUTPUT;
+        ErrLed.PinConfig.PinSpeed       = GPIO_SPEED_LOW;
+        ErrLed.PinConfig.PinOPType      = GPIO_OUTPUT_PUSH_PULL;
+        ErrLed.PinConfig.PinPuPdControl = GPIO_NO_PUPD;
+        ErrLed.PinConfig.PinAltFunMode  = GPIO_AF0;
+        GPIO_Init(&ErrLed);
+
+        ErrorBlink(GPIO_PIN_NO_12);
+    }
 
     for(uint8_t i = 0; i < 3; i++)
     {

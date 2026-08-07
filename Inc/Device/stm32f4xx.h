@@ -248,6 +248,16 @@ typedef struct{
     volatile uint32_t GTPR;  /*!< 0x18 Guard time & prescaler (IrDA/smartcard modu icin)  */
 }USARTx_RegDef_t;
 
+/*Flash Interface regsiter map*/
+typedef struct {
+    volatile uint32_t ACR;      // 0x00: Flash Access Control (Latency / Flash Gecikme ve Cache Ayarları)
+    volatile uint32_t KEYR;     // 0x04: Flash Key (CR Yazmacı Kilit Açma Anahtarları)
+    volatile uint32_t OPTKEYR;  // 0x08: Flash Option Key (OPTCR Yazmacı Kilit Açma Anahtarları)
+    volatile uint32_t SR;       // 0x0C: Flash Status (Meşgul/Hata Bayrakları - Status)
+    volatile uint32_t CR;       // 0x10: Flash Control (Silme, Programlama ve İşlem Başlatma Komutları)
+    volatile uint32_t OPTCR;    // 0x14: Flash Option Control (RDP, WRP ve Read/Write Korumaları)
+} FLASH_RegDef_t;
+
 /******************************************************
 
         Peripheral Pointer Definations
@@ -272,6 +282,8 @@ typedef struct{
 #define EXTI   ((EXTI_RegDef_t*)EXTI_BASE_ADDR)
 
 #define NVIC   ((NVIC_RegDef_t*)NVIC_BASE_ADDR)
+
+#define FLASH  ((FLASH_RegDef_t*)FLASH_BASE_ADDR)
 
 #define I2C1  ((I2Cx_RegDef_t*)I2C1_BASE_ADDR)
 #define I2C2  ((I2Cx_RegDef_t*)I2C2_BASE_ADDR)
