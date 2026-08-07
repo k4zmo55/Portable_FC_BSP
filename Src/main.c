@@ -17,9 +17,41 @@
  */
 
 #include <stdint.h>
+#include "stm32f4xx.h"
+#include "gpio.h"
+
+static void delay(void)
+{
+    for(volatile uint32_t i = 0; i < 500000; i++);
+}
 
 int main(void)
 {
-    /* Loop forever */
-	for(;;);
+    const uint8_t LedPins[3] = { GPIO_PIN_NO_12, GPIO_PIN_NO_13, GPIO_PIN_NO_14 };
+
+    GPIO_PeriClockControl(GPIOD, ENABLE);
+
+    for(uint8_t i = 0; i < 3; i++)
+    {
+        GPIO_Handle_t GpioLed = {0};
+
+        GpioLed.pGPIOx                   = GPIOD;
+        GpioLed.PinConfig.PinNumber      = LedPins[i];
+        GpioLed.PinConfig.PinMode        = GPIO_MODE_OUTPUT;
+        GpioLed.PinConfig.PinSpeed       = GPIO_SPEED_LOW;
+        GpioLed.PinConfig.PinOPType      = GPIO_OUTPUT_PUSH_PULL;
+        GpioLed.PinConfig.PinPuPdControl = GPIO_NO_PUPD;
+        GpioLed.PinConfig.PinAltFunMode  = GPIO_AF0;
+
+        GPIO_Init(&GpioLed);
+    }
+
+    for(;;)
+    {
+        for(uint8_t i = 0; i < 3; i++)
+        {
+            GPIO_TogglePin(GPIOD, LedPins[i]);
+        }
+        delay();
+    }
 }
