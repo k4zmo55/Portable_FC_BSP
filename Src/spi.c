@@ -134,3 +134,59 @@ Status_t SPI_Init(SPI_Handle_t *spi_handle)
 
     return STATUS_OK;
 }
+
+Status_t SPI_Send(SPIx_RegDef_t *pSPIx, uint8_t *pTxBuffer, uint32_t length)
+{
+    /* --- 1. Parametreleri dogrula --- */
+    /* pSPIx gecerli bir SPI cevre birimi mi (IS_SPI), pTxBuffer NULL mu,
+     * length 0 mi -- gecersizse ilgili STATUS_* degerini dondur. */
+
+    /* --- 2. length sifira inene kadar donguye gir --- */
+
+        /* --- 2a. TXE (Transmit buffer Empty) bayragini bekle --- */
+        /* SPI_GetFlagStatus(pSPIx, SPI_SR_TXE) ile SR yazmacindaki TXE
+         * biti set olana kadar polling (busy-wait) yap. */
+
+        /* --- 2b. DFF (Data Frame Format) bitine bak --- */
+        /* pSPIx->CR1 icindeki DFF biti (SPI_CR1_DFF) 1 ise 16-bit,
+         * 0 ise 8-bit veri cercevesi kullaniliyor demektir. */
+
+        /* --- 2c. DFF = 16-bit ise --- */
+        /* pTxBuffer'i (uint16_t*)'a cast edip DR yazmacina 2 byte'i
+         * birden yaz; pTxBuffer'i 2 byte ilerlet, length'i 2 azalt. */
+
+        /* --- 2d. DFF = 8-bit ise --- */
+        /* DR yazmacina pTxBuffer'in gosterdigi 1 byte'i yaz;
+         * pTxBuffer'i 1 byte ilerlet, length'i 1 azalt. */
+
+    /* --- 3. Basarili donus --- */
+    /* STATUS_OK dondur. */
+}
+
+Status_t SPI_Receive(SPIx_RegDef_t *pSPIx, uint8_t *pRxBuffer, uint32_t length)
+{
+    /* --- 1. Parametreleri dogrula --- */
+    /* pSPIx gecerli bir SPI cevre birimi mi (IS_SPI), pRxBuffer NULL mu,
+     * length 0 mi -- gecersizse ilgili STATUS_* degerini dondur. */
+
+    /* --- 2. length sifira inene kadar donguye gir --- */
+
+        /* --- 2a. RXNE (Receive buffer Not Empty) bayragini bekle --- */
+        /* SPI_GetFlagStatus(pSPIx, SPI_SR_RXNE) ile SR yazmacindaki RXNE
+         * biti set olana kadar polling (busy-wait) yap. */
+
+        /* --- 2b. DFF (Data Frame Format) bitine bak --- */
+        /* pSPIx->CR1 icindeki DFF biti (SPI_CR1_DFF) 1 ise 16-bit,
+         * 0 ise 8-bit veri cercevesi kullaniliyor demektir. */
+
+        /* --- 2c. DFF = 16-bit ise --- */
+        /* DR yazmacini (uint16_t*)'a cast edip oku, degeri pRxBuffer'a
+         * yaz; pRxBuffer'i 2 byte ilerlet, length'i 2 azalt. */
+
+        /* --- 2d. DFF = 8-bit ise --- */
+        /* DR yazmacindan 1 byte oku ve pRxBuffer'a yaz;
+         * pRxBuffer'i 1 byte ilerlet, length'i 1 azalt. */
+
+    /* --- 3. Basarili donus --- */
+    /* STATUS_OK dondur. */
+}
