@@ -21,7 +21,8 @@ enable_language(C ASM)
 set(PROJECT_NAME FC_BSP)
 
 # Create an executable object type
-add_executable(${PROJECT_NAME})
+add_executable(${PROJECT_NAME}
+  Src/spi.c)
 
 # Include additional CMake files for flags, components, and files
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/flags.cmake)

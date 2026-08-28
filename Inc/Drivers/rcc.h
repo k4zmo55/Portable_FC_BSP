@@ -118,10 +118,10 @@ typedef struct {
                                      ((P) == RCC_APB_DIV_4) || ((P) == RCC_APB_DIV_8) || \
                                      ((P) == RCC_APB_DIV_16))
 
-#define IS_RCC_PLL_M(M)            (((M) >= 2U)   && ((M) <= 63U))
-#define IS_RCC_PLL_N(N)            (((N) >= 50U)  && ((N) <= 432U))
+#define IS_RCC_PLL_M(M)            (((M) >= 2U)  && ((M) <= 63U))
+#define IS_RCC_PLL_N(N)            (((N) >= 50U) && ((N) <= 432U))
 #define IS_RCC_PLL_P(P)            (((P) == 2U) || ((P) == 4U) || ((P) == 6U) || ((P) == 8U))
-#define IS_RCC_PLL_Q(Q)            (((Q) >= 2U)   && ((Q) <= 15U))
+#define IS_RCC_PLL_Q(Q)            (((Q) >= 2U) && ((Q) <= 15U))
 
 /* ========================================================================= */
 /*                             RCC API FONKSIYONLARI                         */

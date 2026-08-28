@@ -1,7 +1,6 @@
 #ifndef FC_GPIO_H
 #define FC_GPIO_H
 
-#include "stm32f407xx.h"
 #include "stm32f4xx.h"
 #include <stdint.h>
 
