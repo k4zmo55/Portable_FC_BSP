@@ -2,6 +2,9 @@
 #include "gpio.h"
 #include "stm32f4xx.h"
 #include <inttypes.h>
+#include <stdint.h>
+
+static void SPI_ClearOVRFlag(SPIx_RegDef_t *pSPIx);
 
 void SPI_PeriClockControl(SPIx_RegDef_t *pSPIx, uint8_t EnOrDi)
 {
@@ -101,11 +104,10 @@ Status_t SPI_Init(SPI_Handle_t *spi_handle)
     }
     else if(spi_handle->spi_config.BusConfig == SIMPLE_RXONLY)
     {
-        //BIDIMODE Should be Set
-        tempreg |= (1 << SPI_CR1_BIDIMODE);
-
-        //BIDIOE Should be Cleared
-        tempreg &= ~(1 << SPI_CR1_BIDIOE);
+        //2 hatli unidirectional, sadece alma: BIDIMODE=0, RXONLY=1
+        //(MISO+MOSI/SCK aktif kalir, donanim TX'e gerek kalmadan surekli saat uretir)
+        tempreg &= ~(1 << SPI_CR1_BIDIMODE);
+        tempreg |= (1 << SPI_CR1_RXONLY);
     }
 
     /* Configure the Serial Clock Speed */
@@ -135,58 +137,187 @@ Status_t SPI_Init(SPI_Handle_t *spi_handle)
     return STATUS_OK;
 }
 
+void SPI_PeripheralControl(SPIx_RegDef_t *pSPIx, uint8_t EnOrDi)
+{
+    if(EnOrDi == ENABLE)
+    {
+        pSPIx->CR1 |= (1 << SPI_CR1_SPE);
+    }
+    else
+    {
+        pSPIx->CR1 &= ~(1 << SPI_CR1_SPE);
+    }
+}
+
 Status_t SPI_Send(SPIx_RegDef_t *pSPIx, uint8_t *pTxBuffer, uint32_t length)
 {
-    /* --- 1. Parametreleri dogrula --- */
-    /* pSPIx gecerli bir SPI cevre birimi mi (IS_SPI), pTxBuffer NULL mu,
-     * length 0 mi -- gecersizse ilgili STATUS_* degerini dondur. */
+    if(pSPIx == NULL || pTxBuffer == NULL)
+    {
+        return STATUS_NULL_POINTER;
+    }
 
-    /* --- 2. length sifira inene kadar donguye gir --- */
+    if(!IS_SPI(pSPIx))
+    {
+        return STATUS_INVALID_PARAM;
+    }
 
-        /* --- 2a. TXE (Transmit buffer Empty) bayragini bekle --- */
-        /* SPI_GetFlagStatus(pSPIx, SPI_SR_TXE) ile SR yazmacindaki TXE
-         * biti set olana kadar polling (busy-wait) yap. */
+    if(length == 0)
+    {
+        return STATUS_INVALID_PARAM;
+    }
 
-        /* --- 2b. DFF (Data Frame Format) bitine bak --- */
-        /* pSPIx->CR1 icindeki DFF biti (SPI_CR1_DFF) 1 ise 16-bit,
-         * 0 ise 8-bit veri cercevesi kullaniliyor demektir. */
+    while(length > 0)
+    {
+        while(SPI_GetFlagStatus(pSPIx, SPI_SR_TXE) != STATUS_OK);
 
-        /* --- 2c. DFF = 16-bit ise --- */
-        /* pTxBuffer'i (uint16_t*)'a cast edip DR yazmacina 2 byte'i
-         * birden yaz; pTxBuffer'i 2 byte ilerlet, length'i 2 azalt. */
 
-        /* --- 2d. DFF = 8-bit ise --- */
-        /* DR yazmacina pTxBuffer'in gosterdigi 1 byte'i yaz;
-         * pTxBuffer'i 1 byte ilerlet, length'i 1 azalt. */
+        if((pSPIx->CR1 & (1 << SPI_CR1_DFF)) != 0)
+        {
+            //Data frame format 16-bit
+            pSPIx->DR = *((uint16_t*)pTxBuffer);
+            pTxBuffer +=2;
+            length -=2;
+        }
 
-    /* --- 3. Basarili donus --- */
-    /* STATUS_OK dondur. */
+        else
+        {
+            //Data frame format 8-bit
+            pSPIx->DR = *pTxBuffer;
+            pTxBuffer++;
+            length--;
+        }
+    }
+
+    return STATUS_OK;
 }
 
 Status_t SPI_Receive(SPIx_RegDef_t *pSPIx, uint8_t *pRxBuffer, uint32_t length)
 {
-    /* --- 1. Parametreleri dogrula --- */
-    /* pSPIx gecerli bir SPI cevre birimi mi (IS_SPI), pRxBuffer NULL mu,
-     * length 0 mi -- gecersizse ilgili STATUS_* degerini dondur. */
+    if(pSPIx == NULL || pRxBuffer == NULL)
+    {
+        return STATUS_NULL_POINTER;
+    }
 
-    /* --- 2. length sifira inene kadar donguye gir --- */
+    if(!IS_SPI(pSPIx))
+    {
+        return STATUS_INVALID_PARAM;
+    }
 
-        /* --- 2a. RXNE (Receive buffer Not Empty) bayragini bekle --- */
-        /* SPI_GetFlagStatus(pSPIx, SPI_SR_RXNE) ile SR yazmacindaki RXNE
-         * biti set olana kadar polling (busy-wait) yap. */
+    if(length == 0)
+    {
+        return STATUS_INVALID_PARAM;
+    }
 
-        /* --- 2b. DFF (Data Frame Format) bitine bak --- */
-        /* pSPIx->CR1 icindeki DFF biti (SPI_CR1_DFF) 1 ise 16-bit,
-         * 0 ise 8-bit veri cercevesi kullaniliyor demektir. */
+    while( length > 0 )
+    {
+        while(SPI_GetFlagStatus(pSPIx, SPI_SR_RXNE) != STATUS_OK);
 
-        /* --- 2c. DFF = 16-bit ise --- */
-        /* DR yazmacini (uint16_t*)'a cast edip oku, degeri pRxBuffer'a
-         * yaz; pRxBuffer'i 2 byte ilerlet, length'i 2 azalt. */
+        if(SPI_GetFlagStatus(pSPIx, SPI_SR_OVR) == STATUS_OK)
+        {
+            SPI_ClearOVRFlag(pSPIx);
+            return STATUS_OVERRUN;
+        }
 
-        /* --- 2d. DFF = 8-bit ise --- */
-        /* DR yazmacindan 1 byte oku ve pRxBuffer'a yaz;
-         * pRxBuffer'i 1 byte ilerlet, length'i 1 azalt. */
+        if( (pSPIx->CR1 & (1 << SPI_CR1_DFF)) != 0 )
+        {
+            //Data frame format 16-bit
+            *((uint16_t*)pRxBuffer) = (uint16_t)pSPIx->DR;
+            pRxBuffer +=2;
+            length -=2;
+        }
+        else
+        {
+            //Data frame format 8-bit
+            *pRxBuffer = (uint8_t)pSPIx->DR;
+            pRxBuffer++;
+            length--;
+        }
+        
+    }
 
-    /* --- 3. Basarili donus --- */
-    /* STATUS_OK dondur. */
+    return STATUS_OK;
+
+}
+
+Status_t SPI_TransmitReceive(SPIx_RegDef_t *pSPIx, uint8_t *pTxBuffer, uint8_t *pRxBuffer, uint32_t length)
+{
+    if(pSPIx == NULL || pTxBuffer == NULL || pRxBuffer == NULL)
+    {
+        return STATUS_NULL_POINTER;
+    }
+
+    if(!IS_SPI(pSPIx))
+    {
+        return STATUS_INVALID_PARAM;
+    }
+
+    if(length == 0)
+    {
+        return STATUS_INVALID_PARAM;
+    }
+
+    while(length > 0)
+    {
+        if( (pSPIx->CR1 & (1 << SPI_CR1_DFF)) == 0)
+        {
+            //8-Bit
+            while(SPI_GetFlagStatus(pSPIx, SPI_SR_TXE) != STATUS_OK);
+            pSPIx->DR = *pTxBuffer;
+            pTxBuffer++;
+
+            while(SPI_GetFlagStatus(pSPIx, SPI_SR_RXNE) != STATUS_OK);
+
+            if(SPI_GetFlagStatus(pSPIx, SPI_SR_OVR) == STATUS_OK)
+            {
+                SPI_ClearOVRFlag(pSPIx);
+                return STATUS_OVERRUN;
+            }
+
+            *pRxBuffer = (uint8_t)pSPIx->DR;
+            pRxBuffer++;
+
+            length--;    
+        }
+        else
+        {
+            //16-bit
+            while(SPI_GetFlagStatus(pSPIx, SPI_SR_TXE) != STATUS_OK);
+            pSPIx->DR = *((uint16_t*)pTxBuffer);
+            pTxBuffer +=2;
+            
+            while(SPI_GetFlagStatus(pSPIx, SPI_SR_RXNE) != STATUS_OK);
+
+            if(SPI_GetFlagStatus(pSPIx, SPI_SR_OVR) == STATUS_OK)
+            {
+                SPI_ClearOVRFlag(pSPIx);
+                return STATUS_OVERRUN;
+            }
+
+            *((uint16_t*)pRxBuffer) = (uint16_t)pSPIx->DR;
+            pRxBuffer+=2;
+
+            length -=2;
+        }
+        
+    }
+
+    return STATUS_OK;
+}
+
+Status_t SPI_GetFlagStatus(SPIx_RegDef_t *pSPIx, uint32_t FlagName)
+{
+    if(pSPIx->SR & (1 << FlagName))
+    {
+        return STATUS_OK;
+    }
+
+    return STATUS_BUSY;
+}
+
+static void SPI_ClearOVRFlag(SPIx_RegDef_t *pSPIx)
+{
+    volatile uint32_t temp;
+    temp = pSPIx->DR;
+    temp = pSPIx->SR;
+    (void)temp;
 }

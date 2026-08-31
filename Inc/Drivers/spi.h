@@ -46,12 +46,13 @@ Status_t SPI_Init(SPI_Handle_t *spi_handle);
 void SPI_DeInit(SPIx_RegDef_t *pSPIx);
 
 void SPI_PeriClockControl(SPIx_RegDef_t *pSPIx, uint8_t EnOrDi);
+void SPI_PeripheralControl(SPIx_RegDef_t *pSPIx, uint8_t EnOrDi);
 
 Status_t SPI_Send(SPIx_RegDef_t *pSPIx, uint8_t *pTxBuffer, uint32_t length);
 Status_t SPI_Receive(SPIx_RegDef_t *pSPIx,uint8_t *pRxBuffer, uint32_t length);
+Status_t SPI_TransmitReceive(SPIx_RegDef_t *pSPIx, uint8_t *pTxBuffer, uint8_t *pRxBuffer, uint32_t length);
 
 Status_t SPI_GetFlagStatus(SPIx_RegDef_t *pSPIx, uint32_t FlagName);
-
 
 #define IS_SPI(pSPIx) (((pSPIx) == SPI1) || ((pSPIx) == SPI2) || \
                        ((pSPIx) == SPI3))

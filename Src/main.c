@@ -20,25 +20,43 @@
 #include "stm32f4xx.h"
 #include "gpio.h"
 #include "rcc.h"
+#include "spi.h"
 
-static void delay(void)
-{
-    for(volatile uint32_t i = 0; i < 4000000; i++);
-}
+SPI_Handle_t spi_handle;
 
-static void ErrorBlink(uint8_t Pin)
-{
-    for(;;)
-    {
-        GPIO_TogglePin(GPIOD, Pin);
-        delay();
-    }
-}
+#define SLAVE_CS_PORT   GPIOA
+#define SLAVE_CS_PIN    GPIO_PIN_NO_4
+
+void RCC_Config(void);
+void GPIO_Config(void);
+void SPI_Config(void);
+void SlaveCS_Select(void);
+void SlaveCS_Deselect(void);
 
 int main(void)
 {
-    const uint8_t LedPins[3] = { GPIO_PIN_NO_12, GPIO_PIN_NO_13, GPIO_PIN_NO_14 };
+    uint8_t txBuffer[2] = { 0x01, 0xAA };  //ornek: gonderilecek komut/veri
+    uint8_t rxBuffer[2];
 
+    RCC_Config();
+    GPIO_Config();
+    SPI_Config();
+
+    //Slave ile tek transfer: ayni anda gonder ve al
+    SlaveCS_Select();
+    SPI_TransmitReceive(spi_handle.pSPIx, txBuffer, rxBuffer, 2);
+    while(SPI_GetFlagStatus(spi_handle.pSPIx, SPI_SR_BUSY) == STATUS_OK);
+    SlaveCS_Deselect();
+
+    //rxBuffer artik slave'den gelen veriyi tutuyor
+
+    while(1)
+    {
+    }
+}
+
+void RCC_Config(void)
+{
     RCC_Config_t ClockConfig = {
         .OscSource     = RCC_OSC_HSE,
         .OscFreqHz     = 8000000UL,
@@ -50,46 +68,66 @@ int main(void)
         .FlashLatency  = 5
     };
 
-    GPIO_PeriClockControl(GPIOD, ENABLE);
-
     if(RCC_Init(&ClockConfig) != RCC_OK)
     {
-        /* Saat kurulamadi (HSE/PLL kilitlenmedi): PD12'yi hizli yanip
-           sondurerek hata sinyali ver, programdan cikma */
-        GPIO_Handle_t ErrLed = {0};
-        ErrLed.pGPIOx                   = GPIOD;
-        ErrLed.PinConfig.PinNumber      = GPIO_PIN_NO_12;
-        ErrLed.PinConfig.PinMode        = GPIO_MODE_OUTPUT;
-        ErrLed.PinConfig.PinSpeed       = GPIO_SPEED_LOW;
-        ErrLed.PinConfig.PinOPType      = GPIO_OUTPUT_PUSH_PULL;
-        ErrLed.PinConfig.PinPuPdControl = GPIO_NO_PUPD;
-        ErrLed.PinConfig.PinAltFunMode  = GPIO_AF0;
-        GPIO_Init(&ErrLed);
-
-        ErrorBlink(GPIO_PIN_NO_12);
+        while(1);  //saat agaci kurulamadi
     }
+}
 
-    for(uint8_t i = 0; i < 3; i++)
-    {
-        GPIO_Handle_t GpioLed = {0};
+void GPIO_Config(void)
+{
+    GPIO_Handle_t gpio_handle;
 
-        GpioLed.pGPIOx                   = GPIOD;
-        GpioLed.PinConfig.PinNumber      = LedPins[i];
-        GpioLed.PinConfig.PinMode        = GPIO_MODE_OUTPUT;
-        GpioLed.PinConfig.PinSpeed       = GPIO_SPEED_LOW;
-        GpioLed.PinConfig.PinOPType      = GPIO_OUTPUT_PUSH_PULL;
-        GpioLed.PinConfig.PinPuPdControl = GPIO_NO_PUPD;
-        GpioLed.PinConfig.PinAltFunMode  = GPIO_AF0;
+    GPIO_PeriClockControl(GPIOA, ENABLE);
 
-        GPIO_Init(&GpioLed);
-    }
+    //SCK, MISO, MOSI: SPI1 alternate function (AF5)
+    gpio_handle.pGPIOx = GPIOA;
+    gpio_handle.PinConfig.PinMode = GPIO_MODE_ALTERNATE_FUNCTION;
+    gpio_handle.PinConfig.PinOPType = GPIO_OUTPUT_PUSH_PULL;
+    gpio_handle.PinConfig.PinPuPdControl = GPIO_NO_PUPD;
+    gpio_handle.PinConfig.PinSpeed = GPIO_SPEED_HIGH;
+    gpio_handle.PinConfig.PinAltFunMode = GPIO_AF5;
 
-    for(;;)
-    {
-        for(uint8_t i = 0; i < 3; i++)
-        {
-            GPIO_TogglePin(GPIOD, LedPins[i]);
-        }
-        delay();
-    }
+    gpio_handle.PinConfig.PinNumber = GPIO_PIN_NO_5;  //SCK
+    GPIO_Init(&gpio_handle);
+
+    gpio_handle.PinConfig.PinNumber = GPIO_PIN_NO_6;  //MISO
+    GPIO_Init(&gpio_handle);
+
+    gpio_handle.PinConfig.PinNumber = GPIO_PIN_NO_7;  //MOSI
+    GPIO_Init(&gpio_handle);
+
+    //CS: duz GPIO cikisi (SSM_EN kullaniliyor, donanimsal NSS'e gerek yok)
+    gpio_handle.PinConfig.PinNumber = SLAVE_CS_PIN;
+    gpio_handle.PinConfig.PinMode = GPIO_MODE_OUTPUT;
+    gpio_handle.PinConfig.PinAltFunMode = 0;
+    GPIO_Init(&gpio_handle);
+
+    SlaveCS_Deselect();  //baslangicta pasif (HIGH)
+}
+
+void SPI_Config(void)
+{
+    spi_handle.pSPIx = SPI1;
+
+    spi_handle.spi_config.DeviceMode = DEVICE_MASTER;
+    spi_handle.spi_config.BusConfig  = FULL_DUPLEX;
+    spi_handle.spi_config.CPOL       = CPOL_0;
+    spi_handle.spi_config.CPHA       = CPHA_0;
+    spi_handle.spi_config.DFF        = DATA_8_BIT;
+    spi_handle.spi_config.SclkSpeed  = SCLK_DIV8;
+    spi_handle.spi_config.SSM        = SSM_EN;
+
+    SPI_Init(&spi_handle);
+    SPI_PeripheralControl(spi_handle.pSPIx, ENABLE);
+}
+
+void SlaveCS_Select(void)
+{
+    GPIO_WriteToPin(SLAVE_CS_PORT, SLAVE_CS_PIN, GPIO_PIN_RESET);
+}
+
+void SlaveCS_Deselect(void)
+{
+    GPIO_WriteToPin(SLAVE_CS_PORT, SLAVE_CS_PIN, GPIO_PIN_SET);
 }
