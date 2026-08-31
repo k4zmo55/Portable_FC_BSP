@@ -21,15 +21,43 @@
 #include "gpio.h"
 #include "rcc.h"
 #include "spi.h"
+#include "dma.h"
+#include "nvic.h"
 
 SPI_Handle_t spi_handle;
+DMA_Handle_t spi1TxDmaHandle;
+DMA_Handle_t spi1RxDmaHandle;
 
 #define SLAVE_CS_PORT   GPIOA
 #define SLAVE_CS_PIN    GPIO_PIN_NO_4
 
+/* SPI1 TX -> DMA2 Stream3, kanal 3 (bkz. Docs/DMA.md SS3 -- RM0090
+ * Tablo 42/43'teki SPI1_TX istek eslemesi). */
+#define SPI1_TX_DMA_STREAM_NUMBER  3
+
+/* SPI1 RX -> DMA2 Stream0, kanal 3 (ayni tablonun RX satiri). */
+#define SPI1_RX_DMA_STREAM_NUMBER  0
+#define CIRC_RX_BUFFER_LEN         16
+
+//SPI1_IRQHandler icinden SPI_ApplicationEventCallback ile set edilir
+volatile uint8_t g_spiTxComplete = 0;
+
+//DMA2_Stream3_IRQHandler icinden DMA_ApplicationEventCallback ile set edilir
+volatile uint8_t g_dmaTxComplete = 0;
+
+/* DMA2_Stream0_IRQHandler icinden DMA_ApplicationEventCallback ile
+ * arttirilir -- her tam tur (16 byte doldu, bastan sarildi) sayisi.
+ * Circular modun gercekten "surekli" calistigini gozlemlemek icin;
+ * debugger'da izleyebilirsiniz. */
+volatile uint32_t g_circRxCycles = 0;
+uint8_t circularRxBuffer[CIRC_RX_BUFFER_LEN];
+
 void RCC_Config(void);
 void GPIO_Config(void);
 void SPI_Config(void);
+void SPI1_TX_DMA_Config(void);
+void SPI1_RX_DMA_Config(void);
+void SPI_CircularReceiveDemo(void);
 void SlaveCS_Select(void);
 void SlaveCS_Deselect(void);
 
@@ -37,22 +65,107 @@ int main(void)
 {
     uint8_t txBuffer[2] = { 0x01, 0xAA };  //ornek: gonderilecek komut/veri
     uint8_t rxBuffer[2];
+    uint8_t itTxBuffer[2] = { 0x02, 0xBB };  //ikinci ornek: IT ile gonderim
+
+    uint8_t dmaTxBuffer[4] = { 0x03, 0xCC, 0xDD, 0xEE };  //ucuncu ornek: DMA ile gonderim
 
     RCC_Config();
     GPIO_Config();
     SPI_Config();
+    SPI1_TX_DMA_Config();
 
-    //Slave ile tek transfer: ayni anda gonder ve al
+    //--- 1. Ornek: blocking, tek transferde gonder+al (SPI_TransmitReceive) ---
     SlaveCS_Select();
     SPI_TransmitReceive(spi_handle.pSPIx, txBuffer, rxBuffer, 2);
     while(SPI_GetFlagStatus(spi_handle.pSPIx, SPI_SR_BUSY) == STATUS_OK);
     SlaveCS_Deselect();
-
     //rxBuffer artik slave'den gelen veriyi tutuyor
+
+    //--- 2. Ornek: interrupt tabanli, non-blocking gonderim (SPI_SendIT) ---
+    //Gercek kullanimda bu bekleme yerine baska islerinize devam edip
+    //tamamlanmayi SPI_ApplicationEventCallback() ile ogrenirsiniz; burada
+    //basit tutmak icin bayragi bekliyoruz.
+    g_spiTxComplete = 0;
+    SlaveCS_Select();
+    SPI_SendIT(&spi_handle, itTxBuffer, 2);
+    while(!g_spiTxComplete);
+    while(SPI_GetFlagStatus(spi_handle.pSPIx, SPI_SR_BUSY) == STATUS_OK);
+    SlaveCS_Deselect();
+
+    //--- 3. Ornek: DMA tabanli gonderim (SPI_SendDMA) ---
+    //CPU, transfer boyunca tamamen serbest; tamamlanma DMA_ApplicationEventCallback
+    //ile ogreniliyor. Burada da basit tutmak icin bayragi bekliyoruz.
+    g_dmaTxComplete = 0;
+    SlaveCS_Select();
+    SPI_SendDMA(&spi_handle, &spi1TxDmaHandle, dmaTxBuffer, 4);
+    while(!g_dmaTxComplete);
+    //DMA'nin TC bayragi sadece bellek tarafinin bittigini gosterir; son
+    //byte SPI shift register'indan telden hala kayiyor olabilir -- CS'i
+    //kaldirmadan once SPI'nin kendi BSY bayragini da beklemek gerekiyor.
+    while(SPI_GetFlagStatus(spi_handle.pSPIx, SPI_SR_BUSY) == STATUS_OK);
+    SlaveCS_Deselect();
+
+    //--- 4. Ornek: circular DMA ile surekli alim (SPI_ReceiveDMA + CIRC=1) ---
+    //Bu ornek onceki ucünden farkli: bir kerelik degil, sonsuza kadar
+    //calisan bir "stream" baslatiyor -- bu yuzden main()'in geri kalaninda
+    //baska bir transfer yapmiyoruz, CS'i de bilerek hic birakmiyoruz.
+    SPI1_RX_DMA_Config();
+    SPI_CircularReceiveDemo();
 
     while(1)
     {
+        //Donanim circularRxBuffer'i CPU'nun hicbir mudahalesi olmadan
+        //surekli dolduruyor; g_circRxCycles her tam turda bir artiyor.
+        //Gercek bir uygulamada burada baska islerinize devam edip
+        //circularRxBuffer'i uygun bir anda (orn. DMA_EVENT_TRANSFER_COMPLETE
+        //callback'inde) okursunuz.
     }
+}
+
+void SPI1_IRQHandler(void)
+{
+    SPI_IRQHandling(&spi_handle);
+}
+
+void DMA2_Stream3_IRQHandler(void)
+{
+    DMA_IRQHandling(&spi1TxDmaHandle);
+}
+
+void DMA2_Stream0_IRQHandler(void)
+{
+    DMA_IRQHandling(&spi1RxDmaHandle);
+}
+
+void DMA_ApplicationEventCallback(DMA_Handle_t *pDMAHandle, uint8_t AppEv)
+{
+    if(pDMAHandle == &spi1TxDmaHandle)
+    {
+        if(AppEv == DMA_EVENT_TRANSFER_COMPLETE)
+        {
+            g_dmaTxComplete = 1;
+        }
+    }
+    else if(pDMAHandle == &spi1RxDmaHandle)
+    {
+        if(AppEv == DMA_EVENT_TRANSFER_COMPLETE)
+        {
+            //Circular modda NDTR sifirlayip basa sardiginda TC tekrar tekrar
+            //tetiklenir -- her tetiklenme bir "tam tur" (16 byte) demektir.
+            g_circRxCycles++;
+        }
+    }
+    /* DMA_EVENT_TRANSFER_ERROR bu ornekte kullanilmiyor. */
+}
+
+void SPI_ApplicationEventCallback(SPI_Handle_t *pSPIHandle, uint8_t AppEv)
+{
+    if(AppEv == SPI_EVENT_TX_CMPLT)
+    {
+        g_spiTxComplete = 1;
+    }
+    /* SPI_EVENT_RX_CMPLT / SPI_EVENT_OVR_ERR bu ornekte kullanilmiyor,
+     * ihtiyaciniz olursa buraya ekleyebilirsiniz. */
 }
 
 void RCC_Config(void)
@@ -120,6 +233,73 @@ void SPI_Config(void)
 
     SPI_Init(&spi_handle);
     SPI_PeripheralControl(spi_handle.pSPIx, ENABLE);
+
+    //SPI_SendIT/SPI_ReceiveIT icin NVIC'te SPI1 kesmesini ac
+    SPI_IRQPriorityConfig(SPI1_IRQn, 1);
+    SPI_IRQInterruptConfig(SPI1_IRQn, ENABLE);
+}
+
+void SPI1_TX_DMA_Config(void)
+{
+    DMA_PeriClockControl(DMA2, ENABLE);
+
+    spi1TxDmaHandle.pDMAx        = DMA2;
+    spi1TxDmaHandle.pDMAStream   = &DMA2->Stream[SPI1_TX_DMA_STREAM_NUMBER];
+    spi1TxDmaHandle.StreamNumber = SPI1_TX_DMA_STREAM_NUMBER;
+
+    spi1TxDmaHandle.dma_config.Channel   = 3;                       //SPI1, RM0090 Tablo 43
+    spi1TxDmaHandle.dma_config.Direction = DMA_DIR_MEM_TO_PERIPH;   //bellek -> SPI1->DR
+    spi1TxDmaHandle.dma_config.Circular  = DISABLE;                 //tek seferlik transfer
+    spi1TxDmaHandle.dma_config.MemInc    = ENABLE;                  //her byte'ta bellek adresi artsin
+    spi1TxDmaHandle.dma_config.PeriphInc = DISABLE;                 //periferik adresi hep DR
+    spi1TxDmaHandle.dma_config.DataSize  = DMA_DATA_SIZE_BYTE;      //DATA_8_BIT ile uyumlu
+    spi1TxDmaHandle.dma_config.Priority  = DMA_PRIORITY_HIGH;
+
+    DMA_Init(&spi1TxDmaHandle);
+
+    //Transfer tamamlaninca DMA2_Stream3_IRQHandler'in tetiklenmesi icin
+    NVIC_IRQPriorityConfig(DMA2_Stream3_IRQn, 2);
+    NVIC_IRQInterruptConfig(DMA2_Stream3_IRQn, ENABLE);
+}
+
+void SPI1_RX_DMA_Config(void)
+{
+    DMA_PeriClockControl(DMA2, ENABLE);  //TX config'te de acilmisti, tekrar cagirmak zararsiz
+
+    spi1RxDmaHandle.pDMAx        = DMA2;
+    spi1RxDmaHandle.pDMAStream   = &DMA2->Stream[SPI1_RX_DMA_STREAM_NUMBER];
+    spi1RxDmaHandle.StreamNumber = SPI1_RX_DMA_STREAM_NUMBER;
+
+    spi1RxDmaHandle.dma_config.Channel   = 3;                       //SPI1, RM0090 Tablo 43
+    spi1RxDmaHandle.dma_config.Direction = DMA_DIR_PERIPH_TO_MEM;   //SPI1->DR -> bellek
+    spi1RxDmaHandle.dma_config.Circular  = ENABLE;                  //NDTR=0 olunca otomatik basa sarar
+    spi1RxDmaHandle.dma_config.MemInc    = ENABLE;                  //her byte'ta bellek adresi artsin
+    spi1RxDmaHandle.dma_config.PeriphInc = DISABLE;                 //periferik adresi hep DR
+    spi1RxDmaHandle.dma_config.DataSize  = DMA_DATA_SIZE_BYTE;      //DATA_8_BIT ile uyumlu
+    spi1RxDmaHandle.dma_config.Priority  = DMA_PRIORITY_HIGH;
+
+    DMA_Init(&spi1RxDmaHandle);
+
+    NVIC_IRQPriorityConfig(DMA2_Stream0_IRQn, 2);
+    NVIC_IRQInterruptConfig(DMA2_Stream0_IRQn, ENABLE);
+}
+
+void SPI_CircularReceiveDemo(void)
+{
+    /* SPI_ReceiveDMA da, tipki SPI_Receive/SPI_ReceiveIT gibi, DR'ye hic
+     * yazmaz -- FULL_DUPLEX'te saat hic uretilmezdi. Surekli, kesintisiz
+     * bir akis icin donanimin TX'ten bagimsiz surekli saat uretmesi
+     * gerekiyor; bunu SIMPLE_RXONLY (gercek RXONLY biti, SS azaltilmis
+     * bolumde duzelttigimiz haliyle) sagliyor. */
+    spi_handle.spi_config.BusConfig = SIMPLE_RXONLY;
+    SPI_Init(&spi_handle);
+    SPI_PeripheralControl(spi_handle.pSPIx, ENABLE);
+
+    /* CS bilerek hic birakilmiyor: bu tek seferlik bir transfer degil,
+     * slave'i surekli "dinleniyor" konumunda tutan kalici bir akis. */
+    SlaveCS_Select();
+
+    SPI_ReceiveDMA(&spi_handle, &spi1RxDmaHandle, circularRxBuffer, CIRC_RX_BUFFER_LEN);
 }
 
 void SlaveCS_Select(void)

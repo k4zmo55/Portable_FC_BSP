@@ -264,6 +264,27 @@ typedef struct{
     volatile uint32_t GTPR;  /*!< 0x18 Guard time & prescaler (IrDA/smartcard modu icin)  */
 }USARTx_RegDef_t;
 
+/* DMA Stream register map (bkz. RM0090, DMA controller bolumu).
+ * Her stream 6 adet 32-bit registerdan olusur ve controller basina
+ * 8 stream (0-7) art arda dizilir -- DMAx_RegDef_t.Stream[] dizisi
+ * bunu birebir yansitir. */
+typedef struct {
+    volatile uint32_t CR;    /*!< 0x00 Stream konfigurasyonu: EN, DIR, CIRC, MINC/PINC, PSIZE/MSIZE, CHSEL... */
+    volatile uint32_t NDTR;  /*!< 0x04 Kalan veri sayisi (transfer ilerledikce geri sayar) */
+    volatile uint32_t PAR;   /*!< 0x08 Periferik adresi (SPI icin &SPIx->DR) */
+    volatile uint32_t M0AR;  /*!< 0x0C Bellek adresi 0 */
+    volatile uint32_t M1AR;  /*!< 0x10 Bellek adresi 1 (sadece double-buffer modunda) */
+    volatile uint32_t FCR;   /*!< 0x14 FIFO kontrolu: DMDIS, FTH, FS */
+} DMA_Stream_RegDef_t;
+
+typedef struct {
+    volatile uint32_t LISR;   /*!< 0x00 Stream 0-3 kesme durumu (read-only) */
+    volatile uint32_t HISR;   /*!< 0x04 Stream 4-7 kesme durumu (read-only) */
+    volatile uint32_t LIFCR;  /*!< 0x08 Stream 0-3 kesme bayragi temizleme (1 yazilarak temizlenir) */
+    volatile uint32_t HIFCR;  /*!< 0x0C Stream 4-7 kesme bayragi temizleme */
+    DMA_Stream_RegDef_t Stream[8]; /*!< 0x10'dan itibaren, her biri 0x18 (24) bayt araliklarla */
+} DMAx_RegDef_t;
+
 /*Flash Interface regsiter map*/
 typedef struct {
     volatile uint32_t ACR;      // 0x00: Flash Access Control (Latency / Flash Gecikme ve Cache Ayarları)
@@ -301,6 +322,9 @@ typedef struct {
 
 #define FLASH  ((FLASH_RegDef_t*)FLASH_BASE_ADDR)
 
+#define DMA1  ((DMAx_RegDef_t*)DMA1_BASE_ADDR)
+#define DMA2  ((DMAx_RegDef_t*)DMA2_BASE_ADDR)
+
 #define I2C1  ((I2Cx_RegDef_t*)I2C1_BASE_ADDR)
 #define I2C2  ((I2Cx_RegDef_t*)I2C2_BASE_ADDR)
 #define I2C3  ((I2Cx_RegDef_t*)I2C3_BASE_ADDR)
@@ -334,6 +358,8 @@ typedef struct {
 #define GPIOH_PCLK_EN()  (RCC->AHB1ENR |= (1 << 7))
 #define GPIOI_PCLK_EN()  (RCC->AHB1ENR |= (1 << 8))
 #define CRC_PCLK_EN()    (RCC->AHB1ENR |= (1 << 12))
+#define DMA1_PCLK_EN()   (RCC->AHB1ENR |= (1 << 21))
+#define DMA2_PCLK_EN()   (RCC->AHB1ENR |= (1 << 22))
 
 /* APB1 peripheral clock enable */
 #define TIM2_PCLK_EN()   (RCC->APB1ENR |= (1 << 0))
@@ -387,6 +413,8 @@ typedef struct {
 #define GPIOH_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 7))
 #define GPIOI_PCLK_DI()  (RCC->AHB1ENR &= ~(1 << 8))
 #define CRC_PCLK_DI()    (RCC->AHB1ENR &= ~(1 << 12))
+#define DMA1_PCLK_DI()   (RCC->AHB1ENR &= ~(1 << 21))
+#define DMA2_PCLK_DI()   (RCC->AHB1ENR &= ~(1 << 22))
 
 /* APB1 peripheral clock disable */
 #define TIM2_PCLK_DI()   (RCC->APB1ENR &= ~(1 << 0))
@@ -437,6 +465,8 @@ typedef struct {
 #define GPIOG_REG_RESET() do{ (RCC->AHB1RSTR |= (1 << 6)); (RCC->AHB1RSTR &= ~(1 << 6));}while(0)
 #define GPIOH_REG_RESET() do{ (RCC->AHB1RSTR |= (1 << 7)); (RCC->AHB1RSTR &= ~(1 << 7));}while(0)
 #define GPIOI_REG_RESET() do{ (RCC->AHB1RSTR |= (1 << 8)); (RCC->AHB1RSTR &= ~(1 << 8));}while(0)
+#define DMA1_REG_RESET()  do{ (RCC->AHB1RSTR |= (1 << 21)); (RCC->AHB1RSTR &= ~(1 << 21));}while(0)
+#define DMA2_REG_RESET()  do{ (RCC->AHB1RSTR |= (1 << 22)); (RCC->AHB1RSTR &= ~(1 << 22));}while(0)
 
 /* SPIx Peripheral Register Reset*/
 #define SPI1_REG_RESET() do{ (RCC->APB2RSTR |= (1 << 12)); (RCC->APB2RSTR &= ~(1 << 12));}while(0)
@@ -492,6 +522,38 @@ typedef struct {
 #define SPI_SR_OVR       6
 #define SPI_SR_BUSY      7
 #define SPI_SR_FRE       8
+
+/* @DMA_SxCR Bit Positions Definations */
+#define DMA_SxCR_EN       0
+#define DMA_SxCR_DMEIE    1
+#define DMA_SxCR_TEIE     2
+#define DMA_SxCR_HTIE     3
+#define DMA_SxCR_TCIE     4
+#define DMA_SxCR_PFCTRL   5
+#define DMA_SxCR_DIR      6   /* 2 bit: [7:6] */
+#define DMA_SxCR_CIRC     8
+#define DMA_SxCR_PINC     9
+#define DMA_SxCR_MINC     10
+#define DMA_SxCR_PSIZE    11  /* 2 bit: [12:11] */
+#define DMA_SxCR_MSIZE    13  /* 2 bit: [14:13] */
+#define DMA_SxCR_PINCOS   15
+#define DMA_SxCR_PL       16  /* 2 bit: [17:16] */
+#define DMA_SxCR_DBM      18
+#define DMA_SxCR_CT       19
+#define DMA_SxCR_PBURST   21  /* 2 bit: [22:21] */
+#define DMA_SxCR_MBURST   23  /* 2 bit: [24:23] */
+#define DMA_SxCR_CHSEL    25  /* 3 bit: [27:25] */
+
+/* @DMA_SxCR DIR alani degerleri */
+#define DMA_DIR_PERIPH_TO_MEM  0x0
+#define DMA_DIR_MEM_TO_PERIPH  0x1
+#define DMA_DIR_MEM_TO_MEM     0x2
+
+/* @DMA_SxFCR Bit Positions Definations */
+#define DMA_SxFCR_FTH     0   /* 2 bit: [1:0] */
+#define DMA_SxFCR_DMDIS   2
+#define DMA_SxFCR_FS      3   /* 3 bit: [5:3] */
+#define DMA_SxFCR_FEIE    7
 
 /*Useful Macros*/
 #define ENABLE  1

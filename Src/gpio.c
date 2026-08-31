@@ -1,5 +1,6 @@
 #include "gpio.h"
 #include "stm32f4xx.h"
+#include "nvic.h"
 #include <stdint.h>
 
 void GPIO_PeriClockControl(GPIOx_RegDef_t *pGPIOx, uint8_t EnOrDi)
@@ -217,21 +218,12 @@ void GPIO_TogglePin(GPIOx_RegDef_t *pGPIOx, uint8_t PinNumber)
 
 void GPIO_IRQInterruptConfig(IRQn_Type IRQNumber, uint8_t EnOrDi)
 {
-    uint8_t index = IRQNumber / 32;
-    uint8_t pos = IRQNumber % 32;
-
-    if(EnOrDi == ENABLE)
-    {
-        NVIC->ISER[index] = (1 << pos);
-    }
-    else {
-        NVIC->ICER[index] = (1 << pos);
-    }
+    NVIC_IRQInterruptConfig(IRQNumber, EnOrDi);
 }
 
-void   GPIO_IRQPriorityConfig(IRQn_Type IRQNumber, uint8_t IRQPriority)
+void GPIO_IRQPriorityConfig(IRQn_Type IRQNumber, uint8_t IRQPriority)
 {
-    NVIC->IP[IRQNumber] = (uint8_t)(IRQPriority << 4);
+    NVIC_IRQPriorityConfig(IRQNumber, IRQPriority);
 }
 
 void GPIO_IRQHandling(uint8_t PinNumber)
