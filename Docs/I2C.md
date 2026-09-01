@@ -57,6 +57,8 @@ bir şey eklemeye gerek yok.
 hızlı APB1 periferikleri, max 42 MHz. Bu projede `PCLK1 = 42 MHz`
 (`RCC.md` §7) — CCR/TRISE hesaplarının temeli bu değer olacak (§5).
 
+- Hatırlatma : APB1 (42 MHz) , APB2 (84 MHz)
+
 ---
 
 ## 3. Protokol Temelleri — Bit Seviyesinde Bus

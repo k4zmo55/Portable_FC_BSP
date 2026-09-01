@@ -22,7 +22,8 @@ set(PROJECT_NAME FC_BSP)
 
 # Create an executable object type
 add_executable(${PROJECT_NAME}
-  Src/spi.c)
+  Src/spi.c
+  Inc/Drivers/i2c.h)
 
 # Include additional CMake files for flags, components, and files
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/flags.cmake)
