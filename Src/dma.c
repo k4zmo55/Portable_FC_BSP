@@ -48,6 +48,16 @@ Status_t DMA_Init(DMA_Handle_t *pDMAHandle)
         return STATUS_INVALID_PARAM;
     }
 
+    /* Circular/MemInc/PeriphInc sadece ENABLE/DISABLE degeri alabilir --
+     * baska bir deger (orn. yanlislikla yazilmis bir enum/makro) CR
+     * register'ina rastgele bit olarak sizmadan burada yakalanir. */
+    if((pDMAHandle->dma_config.Circular  != ENABLE && pDMAHandle->dma_config.Circular  != DISABLE) ||
+       (pDMAHandle->dma_config.MemInc    != ENABLE && pDMAHandle->dma_config.MemInc    != DISABLE) ||
+       (pDMAHandle->dma_config.PeriphInc != ENABLE && pDMAHandle->dma_config.PeriphInc != DISABLE))
+    {
+        return STATUS_INVALID_PARAM;
+    }
+
     DMA_Stop(pDMAHandle);
 
     uint32_t tempreg = 0;

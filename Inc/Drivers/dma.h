@@ -21,10 +21,10 @@ typedef struct{
 }DMA_Config_t;
 
 typedef struct{
-    DMAx_RegDef_t        *pDMAx;        // DMA1 ya da DMA2 -- LISR/HISR/LIFCR/HIFCR erisimi icin
-    DMA_Stream_RegDef_t  *pDMAStream;   // Ilgili stream (CR/NDTR/PAR/M0AR/FCR erisimi icin)
+    DMAx_RegDef_t         *pDMAx;        // DMA1 ya da DMA2 -- LISR/HISR/LIFCR/HIFCR erisimi icin
+    DMA_Stream_RegDef_t   *pDMAStream;   // Ilgili stream (CR/NDTR/PAR/M0AR/FCR erisimi icin)
     uint8_t                StreamNumber; // 0-7, bayrak bit pozisyonu hesaplamasi icin gerekli
-    DMA_Config_t            dma_config;
+    DMA_Config_t           dma_config;
 }DMA_Handle_t;
 
 /* @DMA_Direction -- SPI_CR1_MSTR gibi degil, register alanina birebir eslesir */
@@ -44,11 +44,11 @@ typedef enum { DMA_PRIORITY_LOW = 0x0, DMA_PRIORITY_MEDIUM, DMA_PRIORITY_HIGH, D
 
 /* @DMA_Flag -- LISR/HISR icindeki bir stream grubunun 6 bitlik alani
  * icinde goreli konum (bit1 donanimda rezerve, bilerek atlaniyor) */
-#define DMA_FLAG_FEIF   0
-#define DMA_FLAG_DMEIF  2
-#define DMA_FLAG_TEIF   3
-#define DMA_FLAG_HTIF   4
-#define DMA_FLAG_TCIF   5
+#define DMA_FLAG_FEIF   0       //FIFO error interrupt flag
+#define DMA_FLAG_DMEIF  2       //Direct mode error interrupt flag
+#define DMA_FLAG_TEIF   3       //Transfer error interrupt flag
+#define DMA_FLAG_HTIF   4       //Half transfer interrupt flag
+#define DMA_FLAG_TCIF   5       //Transfer complete interrupt 
 
 void     DMA_PeriClockControl(DMAx_RegDef_t *pDMAx, uint8_t EnOrDi);
 
