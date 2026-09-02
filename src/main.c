@@ -17,12 +17,7 @@
  */
 
 #include <stdint.h>
-#include "stm32f4xx.h"
-#include "gpio.h"
-#include "rcc.h"
-#include "spi.h"
-#include "dma.h"
-#include "nvic.h"
+#include "fc_drivers.h"
 
 SPI_Handle_t spi_handle;
 DMA_Handle_t spi1TxDmaHandle;

@@ -1,6 +1,4 @@
-#include "gpio.h"
-#include "stm32f4xx.h"
-#include "nvic.h"
+#include "fc_drivers.h"
 #include <stdint.h>
 
 void GPIO_PeriClockControl(GPIOx_RegDef_t *pGPIOx, uint8_t EnOrDi)

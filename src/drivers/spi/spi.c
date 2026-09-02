@@ -1,7 +1,4 @@
-#include "spi.h"
-#include "gpio.h"
-#include "stm32f4xx.h"
-#include "nvic.h"
+#include "fc_drivers.h"
 #include <inttypes.h>
 #include <stdint.h>
 

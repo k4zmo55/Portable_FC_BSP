@@ -22,8 +22,9 @@ set(PROJECT_NAME FC_BSP)
 
 # Create an executable object type
 add_executable(${PROJECT_NAME}
-  Src/spi.c
-  Inc/Drivers/i2c.h)
+  src/drivers/spi/spi.c
+  src/drivers/i2c/i2c.h
+  src/drivers/i2c/i2c.c)
 
 # Include additional CMake files for flags, components, and files
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/flags.cmake)
@@ -38,9 +39,16 @@ target_sources(${PROJECT_NAME} PRIVATE
 # Add include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
   # User defined include directories
-  ${CMAKE_CURRENT_SOURCE_DIR}/Inc
-  ${CMAKE_CURRENT_SOURCE_DIR}/Inc/Device
-  ${CMAKE_CURRENT_SOURCE_DIR}/Inc/Drivers
+  # PX4-vari "surucu-basina-klasor" duzeni: her surucu kendi klasorunde
+  # .h+.c bir arada, bu yuzden her klasor ayri ayri include yoluna eklenir.
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/device
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/drivers
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/drivers/gpio
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/drivers/rcc
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/drivers/nvic
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/drivers/dma
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/drivers/spi
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/drivers/i2c
 )
 
 # Compiler options

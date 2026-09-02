@@ -1,4 +1,4 @@
-#include "dma.h"
+#include "fc_drivers.h"
 
 /* LISR/HISR'daki 4 stream grubunun her birinin 6-bitlik alaninin
  * basladigi bit pozisyonu -- donanim bunu dogrusal (stream*6) degil,

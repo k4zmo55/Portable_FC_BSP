@@ -1,13 +1,13 @@
 # Add sources to executable/library
 target_sources(${PROJECT_NAME} PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/Src/syscall.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Src/sysmem.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Src/main.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Src/startup_stm32f407xx.S"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Src/gpio.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Src/rcc.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Src/nvic.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Src/dma.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/syscall.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/sysmem.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/main.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/startup_stm32f407xx.S"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/drivers/gpio/gpio.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/drivers/rcc/rcc.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/drivers/nvic/nvic.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/drivers/dma/dma.c"
 )
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/stm32f407xg_flash.ld" "${CMAKE_CURRENT_BINARY_DIR}" COPYONLY)
