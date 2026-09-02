@@ -18,13 +18,19 @@
 
 #include <stdint.h>
 #include "fc_drivers.h"
+#include "gpio.h"
+#include "i2c.h"
 
+I2C_Handle_t i2c_handle;
 SPI_Handle_t spi_handle;
 DMA_Handle_t spi1TxDmaHandle;
 DMA_Handle_t spi1RxDmaHandle;
 
 #define SLAVE_CS_PORT   GPIOA
 #define SLAVE_CS_PIN    GPIO_PIN_NO_4
+
+//ornek I2C slave adresi (7-bit) -- gercek slave'inize gore degistirin
+#define I2C_SLAVE_ADDR  0x68
 
 /* SPI1 TX -> DMA2 Stream3, kanal 3 (bkz. Docs/DMA.md SS3 -- RM0090
  * Tablo 42/43'teki SPI1_TX istek eslemesi). */
@@ -49,6 +55,7 @@ uint8_t circularRxBuffer[CIRC_RX_BUFFER_LEN];
 
 void RCC_Config(void);
 void GPIO_Config(void);
+void I2C_Config(void);
 void SPI_Config(void);
 void SPI1_TX_DMA_Config(void);
 void SPI1_RX_DMA_Config(void);
@@ -64,10 +71,22 @@ int main(void)
 
     uint8_t dmaTxBuffer[4] = { 0x03, 0xCC, 0xDD, 0xEE };  //ucuncu ornek: DMA ile gonderim
 
+    uint8_t i2cTxBuffer[1] = { 0x00 };  //I2C ornegi: okunacak register adresi
+    uint8_t i2cRxBuffer[1];             //I2C ornegi: slave'den gelen veri buraya dolar
+
     RCC_Config();
     GPIO_Config();
     SPI_Config();
+    I2C_Config();
     SPI1_TX_DMA_Config();
+
+    //--- I2C Ornek: blocking gonderim + alim (I2C_MasterSend / I2C_MasterReceive) ---
+    //Once register adresini yaziyoruz (Sr=ENABLE -> STOP atilmaz, repeated START
+    //ile hemen okumaya geciliyor), sonra o registerdan 1 byte okuyoruz (Sr=DISABLE
+    //-> okuma bitince STOP uretilir ve bus serbest birakilir).
+    I2C_MasterSend(&i2c_handle, i2cTxBuffer, 1, I2C_SLAVE_ADDR, I2C_ENABLE_SR);
+    I2C_MasterReceive(&i2c_handle, i2cRxBuffer, 1, I2C_SLAVE_ADDR, I2C_DISABLE_SR);
+    //i2cRxBuffer[0] artik slave'den gelen veriyi tutuyor
 
     //--- 1. Ornek: blocking, tek transferde gonder+al (SPI_TransmitReceive) ---
     SlaveCS_Select();
@@ -184,34 +203,64 @@ void RCC_Config(void)
 
 void GPIO_Config(void)
 {
-    GPIO_Handle_t gpio_handle;
+    GPIO_Handle_t spi_gpio_handle,i2c_gpio_handle;
 
     GPIO_PeriClockControl(GPIOA, ENABLE);
 
     //SCK, MISO, MOSI: SPI1 alternate function (AF5)
-    gpio_handle.pGPIOx = GPIOA;
-    gpio_handle.PinConfig.PinMode = GPIO_MODE_ALTERNATE_FUNCTION;
-    gpio_handle.PinConfig.PinOPType = GPIO_OUTPUT_PUSH_PULL;
-    gpio_handle.PinConfig.PinPuPdControl = GPIO_NO_PUPD;
-    gpio_handle.PinConfig.PinSpeed = GPIO_SPEED_HIGH;
-    gpio_handle.PinConfig.PinAltFunMode = GPIO_AF5;
+    spi_gpio_handle.pGPIOx = GPIOA;
+    spi_gpio_handle.PinConfig.PinMode = GPIO_MODE_ALTERNATE_FUNCTION;
+    spi_gpio_handle.PinConfig.PinOPType = GPIO_OUTPUT_PUSH_PULL;
+    spi_gpio_handle.PinConfig.PinPuPdControl = GPIO_NO_PUPD;
+    spi_gpio_handle.PinConfig.PinSpeed = GPIO_SPEED_HIGH;
+    spi_gpio_handle.PinConfig.PinAltFunMode = GPIO_AF5;
 
-    gpio_handle.PinConfig.PinNumber = GPIO_PIN_NO_5;  //SCK
-    GPIO_Init(&gpio_handle);
+    spi_gpio_handle.PinConfig.PinNumber = GPIO_PIN_NO_5;  //SCK
+    GPIO_Init(&spi_gpio_handle);
 
-    gpio_handle.PinConfig.PinNumber = GPIO_PIN_NO_6;  //MISO
-    GPIO_Init(&gpio_handle);
+    spi_gpio_handle.PinConfig.PinNumber = GPIO_PIN_NO_6;  //MISO
+    GPIO_Init(&spi_gpio_handle);
 
-    gpio_handle.PinConfig.PinNumber = GPIO_PIN_NO_7;  //MOSI
-    GPIO_Init(&gpio_handle);
+    spi_gpio_handle.PinConfig.PinNumber = GPIO_PIN_NO_7;  //MOSI
+    GPIO_Init(&spi_gpio_handle);
 
     //CS: duz GPIO cikisi (SSM_EN kullaniliyor, donanimsal NSS'e gerek yok)
-    gpio_handle.PinConfig.PinNumber = SLAVE_CS_PIN;
-    gpio_handle.PinConfig.PinMode = GPIO_MODE_OUTPUT;
-    gpio_handle.PinConfig.PinAltFunMode = 0;
-    GPIO_Init(&gpio_handle);
+    spi_gpio_handle.PinConfig.PinNumber = SLAVE_CS_PIN;
+    spi_gpio_handle.PinConfig.PinMode = GPIO_MODE_OUTPUT;
+    spi_gpio_handle.PinConfig.PinAltFunMode = 0;
+    GPIO_Init(&spi_gpio_handle);
 
     SlaveCS_Deselect();  //baslangicta pasif (HIGH)
+
+
+    GPIO_PeriClockControl(GPIOB, ENABLE);
+
+    i2c_gpio_handle.pGPIOx = GPIOB;
+    i2c_gpio_handle.PinConfig.PinMode = GPIO_MODE_ALTERNATE_FUNCTION;
+    i2c_gpio_handle.PinConfig.PinOPType = GPIO_OUTPUT_OPEN_DRAIN;
+    i2c_gpio_handle.PinConfig.PinPuPdControl = GPIO_PULL_UP;
+    i2c_gpio_handle.PinConfig.PinSpeed = GPIO_SPEED_HIGH;
+    i2c_gpio_handle.PinConfig.PinAltFunMode = GPIO_AF4;
+
+    i2c_gpio_handle.PinConfig.PinNumber = GPIO_PIN_NO_6; //SCL
+    GPIO_Init(&i2c_gpio_handle);
+
+    i2c_gpio_handle.PinConfig.PinNumber = GPIO_PIN_NO_7; //SDA
+    GPIO_Init(&i2c_gpio_handle);
+
+}
+
+void I2C_Config(void)
+{
+    i2c_handle.pI2Cx = I2C1;
+
+    i2c_handle.i2c_config.SclSpeed = I2C_SPEED_STANDARD;
+    i2c_handle.i2c_config.ACKControl = I2C_ACK_ENABLE;
+    i2c_handle.i2c_config.FMDutyCycle = I2C_FM_DUTY_16_9;
+
+    I2C_Init(&i2c_handle);
+
+    I2C_PeripheralControl(i2c_handle.pI2Cx, ENABLE);
 }
 
 void SPI_Config(void)
